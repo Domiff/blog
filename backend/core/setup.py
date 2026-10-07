@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.admin.setup import setup_admin
+from backend.auth.security import auth
+from backend.auth.router import router as auth_router
 from backend.core.settings import settings
 from backend.core.health import router as health_router
 from backend.core.logging import get_logger, setup_logging
@@ -30,7 +32,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         openapi_url="/openapi.json" if settings.app.IS_DEBUG else None,
     )
-
+    auth.handle_errors(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors.CORS_ORIGINS,
@@ -40,7 +42,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
-
+    app.include_router(auth_router)
     setup_admin(app)
 
     return app
