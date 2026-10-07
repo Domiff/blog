@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 
 class Base(DeclarativeBase):
     __abstract__ = True
+    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
