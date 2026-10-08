@@ -23,12 +23,15 @@ class PostRepository(BaseRepository):
     async def get_by_id(self, id: int) -> Post | None:
         return await self.session.get(Post, id)
 
-    async def update(self, post: Post, data: dict[str, Any]) -> None:
+    async def update(self, post: Post, data: dict[str, Any]) -> Post:
         for key, value in data.items():
             if not hasattr(Post, key):
                 raise AttributeError(f"Post has no field {key!r}")
+            if value is None:
+                continue
             setattr(post, key, value)
         await self.session.flush()
+        return post
 
     async def delete(self, post: Post) -> None:
         await self.session.delete(post)
