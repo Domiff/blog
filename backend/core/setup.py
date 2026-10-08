@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.admin.setup import setup_admin
+from backend.auth.admin import UserAdmin
 from backend.auth.security import auth
 from backend.auth.router import router as auth_router
 from backend.core.settings import settings
@@ -43,6 +44,8 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(auth_router)
-    setup_admin(app)
+
+    admin = setup_admin(app)
+    admin.add_view(UserAdmin)
 
     return app

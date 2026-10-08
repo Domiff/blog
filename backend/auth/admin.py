@@ -26,13 +26,13 @@ class UserAdmin(BaseAdmin, model=User):
         User.updated_at,
     ]
     column_labels = {
-        User.id: "Уникальный идентификатор",
+        User.id: "Unique identifier",
         User.email: "Email",
-        User.password: "Пароль",
-        User.is_active: "Статус",
-        User.is_superuser: "Администратор",
-        User.created_at: "Дата создания",
-        User.updated_at: "Дата обновления",
+        User.password: "Password",
+        User.is_active: "Status",
+        User.is_superuser: "Administrator",
+        User.created_at: "Created at",
+        User.updated_at: "Updated at",
     }
     column_searchable_list = [
         User.email,
@@ -45,8 +45,8 @@ class UserAdmin(BaseAdmin, model=User):
         User.updated_at,
     ]
     column_filters = [
-        BooleanFilter(User.is_active, title="Статус"),
-        BooleanFilter(User.is_superuser, title="Администратор"),
+        BooleanFilter(User.is_active, title="Status"),
+        BooleanFilter(User.is_superuser, title="Administrator"),
     ]
 
     form_create_rules = [
@@ -62,11 +62,11 @@ class UserAdmin(BaseAdmin, model=User):
     ]
 
     icon = "fa-solid fa-user-shield"
-    category = "Доступ"
+    category = "Access"
     category_icon = "fa-solid fa-lock"
 
-    name = "Пользователь"
-    name_plural = "Пользователи"
+    name = "User"
+    name_plural = "Users"
 
     async def on_model_change(
         self, data: dict, model: User, is_created: bool, request: Request
