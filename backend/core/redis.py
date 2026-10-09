@@ -74,4 +74,4 @@ def get_redis() -> Redis:
     )
 
 
-redis = get_redis()
+redis = RedisClient(get_redis())
