@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.admin.setup import setup_admin
 from backend.auth.admin import UserAdmin
-from backend.auth.security import auth
+from backend.auth.security import setup_auth_errors
 from backend.auth.router import router as auth_router
 from backend.blog.admin import PostAdmin
 from backend.blog.router import router as blog_router
@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         openapi_url="/openapi.json" if settings.app.IS_DEBUG else None,
     )
-    auth.handle_errors(app)
+    setup_auth_errors(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors.CORS_ORIGINS,

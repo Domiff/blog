@@ -8,6 +8,10 @@ class CredentialsSchema(BaseSchema):
     password: str
 
 
+class LogoutSchema(BaseSchema):
+    refresh: str
+
+
 class UserSchema(BaseSchema):
     password: str
     email: EmailStr
