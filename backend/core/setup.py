@@ -8,6 +8,7 @@ from backend.admin.setup import setup_admin
 from backend.auth.admin import UserAdmin
 from backend.auth.security import auth
 from backend.auth.router import router as auth_router
+from backend.blog.admin import PostAdmin
 from backend.blog.router import router as blog_router
 from backend.core.settings import settings
 from backend.core.health import router as health_router
@@ -49,5 +50,6 @@ def create_app() -> FastAPI:
 
     admin = setup_admin(app)
     admin.add_view(UserAdmin)
+    admin.add_view(PostAdmin)
 
     return app
