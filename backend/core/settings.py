@@ -69,6 +69,19 @@ class AuthSettings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRES: int = 30
 
 
+class RedisSettings(AppSettings):
+    REDIS_URL: str = ""
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    CONNECTION_POOL_MAXSIZE: int = 10
+    EXPIRE: int = 60 * 60
+
+    def model_post_init(self, __context) -> None:
+        if not self.REDIS_URL:
+            self.REDIS_URL = f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+
 class Settings:
     app: AppSettings = AppSettings()
     cors: CORSSettings = CORSSettings()
@@ -76,6 +89,7 @@ class Settings:
     logging: LoggingSettings = LoggingSettings()
     admin: AdminSettings = AdminSettings()
     auth: AuthSettings = AuthSettings()
+    redis: RedisSettings = RedisSettings()
 
 
 settings = Settings()
