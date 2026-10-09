@@ -54,7 +54,7 @@ class RedisClient:
 
     async def exists(self, key: str) -> int:
         logger.info("redis_exists", extra={"redis_key": key})
-        return await self._do(self.redis.exists, key, settings.redis.EXPIRE)
+        return await self._do(self.redis.exists, key)
 
     async def delete(self, key: str) -> None:
         await self._do(self.redis.delete, key)
