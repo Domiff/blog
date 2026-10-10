@@ -2,9 +2,9 @@ from datetime import datetime
 
 from strawberry import type, input, field, mutation, asdict, Schema, Info
 
+from backend.blog.enums import PostStatus
 from backend.blog.repository import PostRepository
 from backend.blog.models import Post
-from backend.core.database import get_session
 
 
 @input
@@ -20,6 +20,8 @@ class PostSchemaOut:
     body: str
     created_at: datetime
     updated_at: datetime
+    status: PostStatus
+    published_at: datetime | None
 
     @classmethod
     def from_model(cls, post: Post) -> "PostSchemaOut":
@@ -29,6 +31,8 @@ class PostSchemaOut:
             body=post.body,
             created_at=post.created_at,
             updated_at=post.updated_at,
+            status=post.status,
+            published_at=post.published_at,
         )
 
 
@@ -75,6 +79,16 @@ class Mutation:
         post = await repo.get_by_id(post_id)
         if post:
             await repo.delete(post)
+
+    @mutation
+    async def publish_post(self, info: Info, post_id: int) -> PostSchemaOut | None:
+        repo = PostRepository(info.context.session)
+        post = await repo.get_by_id(post_id)
+        if not post:
+            return None
+        if post.status != PostStatus.DRAFT:
+            return None
+        return PostSchemaOut.from_model(await repo.publish(post))
 
 
 schema = Schema(query=Query, mutation=Mutation)

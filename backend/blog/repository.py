@@ -1,9 +1,11 @@
 from collections.abc import Sequence
+from datetime import datetime, UTC
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.blog.enums import PostStatus
 from backend.blog.models import Post
 from backend.core.database import BaseRepository
 
@@ -36,3 +38,9 @@ class PostRepository(BaseRepository):
     async def delete(self, post: Post) -> None:
         await self.session.delete(post)
         await self.session.flush()
+
+    async def publish(self, post: Post) -> Post:
+        post.status = PostStatus.PUBLISHED
+        post.published_at = datetime.now(tz=UTC)
+        await self.session.flush()
+        return post
