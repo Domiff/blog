@@ -37,9 +37,7 @@ class AuthService:
         }
         try:
             user = await self.repo.create(data)
-            await self.session.commit()
         except IntegrityError as e:
-            await self.session.rollback()
             logger.error("User already exists", extra={"email": credentials.email})
             raise AlreadyExists() from e
         logger.info("User created successfully", extra={"user_id": user.id})

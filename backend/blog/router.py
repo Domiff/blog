@@ -1,6 +1,6 @@
 from strawberry.fastapi import GraphQLRouter
 
-from backend.blog.context import get_context
+from backend.core.context import get_context
 from backend.blog.schemas import schema
 
 router = GraphQLRouter(

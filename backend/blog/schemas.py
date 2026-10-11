@@ -5,6 +5,7 @@ from strawberry import type, input, field, mutation, asdict, Schema, Info
 from backend.blog.enums import PostStatus
 from backend.blog.repository import PostRepository
 from backend.blog.models import Post
+from backend.core.context import RollbackOnErrorExtension
 
 
 @input
@@ -91,4 +92,4 @@ class Mutation:
         return PostSchemaOut.from_model(await repo.publish(post))
 
 
-schema = Schema(query=Query, mutation=Mutation)
+schema = Schema(query=Query, mutation=Mutation, extensions=[RollbackOnErrorExtension])
