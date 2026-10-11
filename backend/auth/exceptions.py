@@ -1,4 +1,4 @@
-from backend.core.exceptions import AppException
+from backend.core.exceptions.rest import AppException
 
 
 class Forbidden(AppException):

@@ -11,7 +11,7 @@ from backend.auth.repository import UserRepository
 from backend.auth.schemas import CredentialsSchema
 from backend.auth.security import auth
 from backend.auth.utils import hash_password, verify_password
-from backend.core.exceptions import AlreadyExists
+from backend.core.exceptions.rest import AlreadyExists
 from backend.core.logging import get_logger
 from backend.core.redis import redis, key_builder
 from backend.core.settings import settings
