@@ -26,6 +26,10 @@ class ProfileRepository(BaseRepository):
         query = select(Profile).where(Profile.username == username)
         return await self.session.scalar(query)
 
+    async def get_by_user_id(self, user_id: int) -> Profile | None:
+        query = select(Profile).where(Profile.user_id == user_id)
+        return await self.session.scalar(query)
+
     async def update(self, profile: Profile, data: dict[str, Any]) -> Profile:
         for key, value in data.items():
             if not hasattr(Profile, key):
