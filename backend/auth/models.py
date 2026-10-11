@@ -20,5 +20,5 @@ class User(Base):
 
     profile: Mapped["Profile"] = relationship(back_populates="user", lazy="raise")
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return self.email
