@@ -19,7 +19,7 @@ class Profile(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["User"] = relationship(back_populates="profile", lazy="raise")
-    posts: Mapped["Post"] = relationship(back_populates="profile", lazy="raise")
+    posts: Mapped[list["Post"]] = relationship(back_populates="author", lazy="raise")
 
     def __str__(self) -> str:
         return self.username
