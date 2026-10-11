@@ -21,28 +21,17 @@ class AppSettings(BaseSettings):
 
 
 class DBSettings(BaseSettings):
-    DB_URL: str = ""
-    SQLITE_URL: str = "sqlite+aiosqlite:///db.sqlite3"
+    POSTGRES_DB: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: int
 
-    POSTGRES_DB: str = "POSTGRES_DB"
-    POSTGRES_USER: str = "POSTGRES_USER"
-    POSTGRES_PASSWORD: str = "POSTGRES_PASSWORD"
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
-
-    def get_pg_url(self) -> str:
+    def get_url(self) -> str:
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
-
-    def model_post_init(self, __context) -> None:
-        if not self.DB_URL:
-            object.__setattr__(
-                self,
-                "DB_URL",
-                self.SQLITE_URL if self.IS_DEBUG else self.get_pg_url(),
-            )
 
 
 class CORSSettings(BaseSettings):
