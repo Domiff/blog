@@ -3,6 +3,7 @@ from typing import Annotated, TYPE_CHECKING
 import strawberry
 
 from backend.blog.repository import PostRepository
+from backend.core.permissions import IsAuthenticated
 from backend.profile.models import Profile
 from backend.profile.repository import ProfileRepository
 
@@ -72,19 +73,10 @@ class ProfileQuery:
 
 @strawberry.type
 class ProfileMutation:
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def update_profile(
-        self, info: strawberry.Info, profile_id: int, input: UpdateProfileInput
-    ) -> ProfileType | None:
+        self, info: strawberry.Info, input: UpdateProfileInput
+    ) -> ProfileType:
         repo = ProfileRepository(info.context.session)
-        profile = await repo.get_by_id(profile_id)
-        if profile:
-            profile = await repo.update(profile, strawberry.asdict(input))
-            return ProfileType.from_model(profile)
-
-    @strawberry.mutation
-    async def delete_profile(self, info: strawberry.Info, profile_id: int) -> None:
-        repo = ProfileRepository(info.context.session)
-        profile = await repo.get_by_id(profile_id)
-        if profile:
-            await repo.delete(profile)
+        profile = await repo.update(info.context.profile, strawberry.asdict(input))
+        return ProfileType.from_model(profile)

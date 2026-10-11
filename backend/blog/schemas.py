@@ -6,6 +6,8 @@ import strawberry
 from backend.blog.enums import PostStatus
 from backend.blog.repository import PostRepository
 from backend.blog.models import Post
+from backend.core.exceptions.graphql import PermissionDenied, NotFound
+from backend.core.permissions import IsAuthenticated
 from backend.profile.repository import ProfileRepository
 
 
@@ -17,7 +19,6 @@ if TYPE_CHECKING:
 class CreatePostInput:
     title: str
     body: str
-    author_id: int
 
 
 @strawberry.input
@@ -81,35 +82,41 @@ class BlogQuery:
 
 @strawberry.type
 class BlogMutation:
-    @strawberry.mutation
+    @staticmethod
+    def _get_own_post(post: Post | None, info: strawberry.Info) -> Post:
+        if post is None:
+            raise NotFound("Post not found")
+        if post.author_id != info.context.profile.id:
+            raise PermissionDenied()
+        return post
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_post(self, info: strawberry.Info, input: CreatePostInput) -> PostType:
         repo = PostRepository(info.context.session)
-        post = await repo.create(strawberry.asdict(input))
+        input_as_dict = strawberry.asdict(input)
+        input_as_dict["author_id"] = info.context.profile.id
+        post = await repo.create(input_as_dict)
         return PostType.from_model(post)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def update_post(
         self, info: strawberry.Info, post_id: int, input: UpdatePostInput
-    ) -> PostType | None:
+    ) -> PostType:
         repo = PostRepository(info.context.session)
-        post = await repo.get_by_id(post_id)
-        if post:
-            post = await repo.update(post, strawberry.asdict(input))
-            return PostType.from_model(post)
+        post = BlogMutation._get_own_post(await repo.get_by_id(post_id), info)
+        post = await repo.update(post, strawberry.asdict(input))
+        return PostType.from_model(post)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def delete_post(self, info: strawberry.Info, post_id: int) -> None:
         repo = PostRepository(info.context.session)
-        post = await repo.get_by_id(post_id)
-        if post:
-            await repo.delete(post)
+        post = BlogMutation._get_own_post(await repo.get_by_id(post_id), info)
+        await repo.delete(post)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def publish_post(self, info: strawberry.Info, post_id: int) -> PostType | None:
         repo = PostRepository(info.context.session)
-        post = await repo.get_by_id(post_id)
-        if not post:
-            return None
+        post = BlogMutation._get_own_post(await repo.get_by_id(post_id), info)
         if post.status != PostStatus.DRAFT:
             return None
         return PostType.from_model(await repo.publish(post))
