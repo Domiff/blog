@@ -1,6 +1,6 @@
 from pydantic import EmailStr
 
-from backend.core.schemas import BaseSchema, UTCDatetime
+from backend.core.schemas.rest import BaseSchema, UTCDatetime
 
 
 class CredentialsSchema(BaseSchema):
