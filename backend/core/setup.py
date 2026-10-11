@@ -3,16 +3,18 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from strawberry.fastapi import GraphQLRouter
 
 from backend.admin.setup import setup_admin
 from backend.auth.admin import UserAdmin
 from backend.auth.security import setup_auth_errors
 from backend.auth.router import router as auth_router
 from backend.blog.admin import PostAdmin
-from backend.blog.router import router as blog_router
+from backend.core.context import get_context
 from backend.core.settings import settings
 from backend.core.health import router as health_router
 from backend.core.logging import get_logger, setup_logging
+from backend.core.schemas.graphql import schema
 
 logger = get_logger(__name__)
 
@@ -46,7 +48,14 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(auth_router)
-    app.include_router(blog_router)
+    app.include_router(
+        GraphQLRouter(
+            schema,
+            prefix=settings.app.GRAPHQL_PATH,
+            tags=["GraphQL"],
+            context_getter=get_context,
+        )
+    )
 
     admin = setup_admin(app)
     admin.add_view(UserAdmin)

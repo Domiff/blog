@@ -1,31 +1,53 @@
 from datetime import datetime
+from typing import Annotated, TYPE_CHECKING
 
-from strawberry import type, input, field, mutation, asdict, Schema, Info
+import strawberry
 
 from backend.blog.enums import PostStatus
 from backend.blog.repository import PostRepository
 from backend.blog.models import Post
-from backend.core.context import RollbackOnErrorExtension
+from backend.profile.repository import ProfileRepository
 
 
-@input
-class PostSchemaIn:
+if TYPE_CHECKING:
+    from backend.profile.schemas import ProfileType
+
+
+@strawberry.input
+class CreatePostInput:
+    title: str
+    body: str
+    author_id: int
+
+
+@strawberry.input
+class UpdatePostInput:
     title: str | None
     body: str | None
 
 
-@type
-class PostSchemaOut:
+@strawberry.type(name="Post")
+class PostType:
     id: int
     title: str
     body: str
     created_at: datetime
     updated_at: datetime
-    status: PostStatus
     published_at: datetime | None
+    status: PostStatus
+    author_id: strawberry.Private[int]
+
+    @strawberry.field
+    async def author(
+        self, info: strawberry.Info
+    ) -> Annotated["ProfileType", strawberry.lazy("backend.profile.schemas")]:
+        from backend.profile.schemas import ProfileType
+
+        profile = await ProfileRepository(info.context.session).get_by_id(self.author_id)
+        return ProfileType.from_model(profile)
 
     @classmethod
-    def from_model(cls, post: Post) -> "PostSchemaOut":
+    def from_model(cls, post: Post) -> "PostType":
         return cls(
             id=post.id,
             title=post.title,
@@ -34,62 +56,60 @@ class PostSchemaOut:
             updated_at=post.updated_at,
             status=post.status,
             published_at=post.published_at,
+            author_id=post.author_id,
         )
 
 
-@type
-class Query:
-    @field
-    async def get_post_list(self, info: Info) -> list[PostSchemaOut] | None:
+@strawberry.type
+class BlogQuery:
+    @strawberry.field
+    async def posts(self, info: strawberry.Info) -> list[PostType] | None:
         repo = PostRepository(info.context.session)
         posts = await repo.list()
         if not posts:
             return None
-        return [PostSchemaOut.from_model(post) for post in posts]
+        return [PostType.from_model(post) for post in posts]
 
-    @field
-    async def get_post_by_id(self, info: Info, post_id: int) -> PostSchemaOut | None:
+    @strawberry.field
+    async def post_by_id(self, info: strawberry.Info, post_id: int) -> PostType | None:
         repo = PostRepository(info.context.session)
         post = await repo.get_by_id(post_id)
         if not post:
             return None
-        return PostSchemaOut.from_model(post)
+        return PostType.from_model(post)
 
 
-@type
-class Mutation:
-    @mutation
-    async def create_post(self, info: Info, post_schema: PostSchemaIn) -> PostSchemaOut:
+@strawberry.type
+class BlogMutation:
+    @strawberry.mutation
+    async def create_post(self, info: strawberry.Info, input: CreatePostInput) -> PostType:
         repo = PostRepository(info.context.session)
-        post = await repo.create(asdict(post_schema))
-        return PostSchemaOut.from_model(post)
+        post = await repo.create(strawberry.asdict(input))
+        return PostType.from_model(post)
 
-    @mutation
+    @strawberry.mutation
     async def update_post(
-        self, info: Info, post_id: int, post_schema: PostSchemaIn
-    ) -> PostSchemaOut | None:
+        self, info: strawberry.Info, post_id: int, input: UpdatePostInput
+    ) -> PostType | None:
         repo = PostRepository(info.context.session)
         post = await repo.get_by_id(post_id)
         if post:
-            post = await repo.update(post, asdict(post_schema))
-            return PostSchemaOut.from_model(post)
+            post = await repo.update(post, strawberry.asdict(input))
+            return PostType.from_model(post)
 
-    @mutation
-    async def delete_post(self, info: Info, post_id: int) -> None:
+    @strawberry.mutation
+    async def delete_post(self, info: strawberry.Info, post_id: int) -> None:
         repo = PostRepository(info.context.session)
         post = await repo.get_by_id(post_id)
         if post:
             await repo.delete(post)
 
-    @mutation
-    async def publish_post(self, info: Info, post_id: int) -> PostSchemaOut | None:
+    @strawberry.mutation
+    async def publish_post(self, info: strawberry.Info, post_id: int) -> PostType | None:
         repo = PostRepository(info.context.session)
         post = await repo.get_by_id(post_id)
         if not post:
             return None
         if post.status != PostStatus.DRAFT:
             return None
-        return PostSchemaOut.from_model(await repo.publish(post))
-
-
-schema = Schema(query=Query, mutation=Mutation, extensions=[RollbackOnErrorExtension])
+        return PostType.from_model(await repo.publish(post))

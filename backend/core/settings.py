@@ -18,6 +18,7 @@ class AppSettings(BaseSettings):
     APP_NAME: str = "Blog"
     APP_TITLE: str = "Blog API"
     APP_VERSION: str = "1"
+    GRAPHQL_PATH: str = "/graphql"
 
 
 class DBSettings(BaseSettings):
