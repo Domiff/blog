@@ -1,9 +1,8 @@
 from datetime import timedelta
 from functools import lru_cache
-from typing import Any, AsyncIterator, Awaitable, Callable
+from typing import Any, Awaitable, Callable
 
 from redis.asyncio import Redis
-from redis.asyncio.client import PubSub
 from redis.exceptions import (
     ConnectionError as RedisConnectionError,
     TimeoutError as RedisTimeoutError,
