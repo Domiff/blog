@@ -17,9 +17,13 @@ class Profile(Base):
     username: Mapped[str] = mapped_column(String(32), unique=True)
     bio: Mapped[str | None] = mapped_column(Text)
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True
+    )
     user: Mapped["User"] = relationship(back_populates="profile", lazy="raise")
-    posts: Mapped[list["Post"]] = relationship(back_populates="author", lazy="raise")
+    posts: Mapped[list["Post"]] = relationship(
+        back_populates="author", lazy="raise", passive_deletes=True
+    )
 
     def __str__(self) -> str:
         return self.username

@@ -1,11 +1,15 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, String, Text, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, String, Text, Enum, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.blog.enums import PostStatus
 from backend.core.database import Base
+
+
+if TYPE_CHECKING:
+    from backend.profile.models import Profile
 
 
 class Post(Base):
@@ -21,6 +25,10 @@ class Post(Base):
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, index=True
     )
+    author_id: Mapped[int] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    author: Mapped["Profile"] = relationship(back_populates="posts", lazy="raise")
 
     def __str__(self) -> str:
         return self.title

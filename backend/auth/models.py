@@ -18,7 +18,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     is_superuser: Mapped[bool] = mapped_column(default=False)
 
-    profile: Mapped["Profile"] = relationship(back_populates="user", lazy="raise")
+    profile: Mapped["Profile | None"] = relationship(
+        back_populates="user", lazy="raise", passive_deletes=True
+    )
 
     def __str__(self) -> str:
         return self.email
