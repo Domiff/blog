@@ -29,6 +29,9 @@ def upgrade() -> None:
             type_=sa.Text(),
             existing_nullable=False,
         )
+        batch_op.add_column(
+            sa.Column("published_at", sa.DateTime(timezone=True), nullable=True)
+        )
         batch_op.create_index(
             batch_op.f("ix_posts_published_at"), ["published_at"], unique=False
         )
@@ -45,6 +48,7 @@ def downgrade() -> None:
     with op.batch_alter_table("posts", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_posts_title"))
         batch_op.drop_index(batch_op.f("ix_posts_published_at"))
+        batch_op.drop_column("published_at")
         batch_op.alter_column(
             "body",
             existing_type=sa.Text(),
