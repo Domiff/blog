@@ -15,6 +15,7 @@ from backend.core.exceptions import AlreadyExists
 from backend.core.logging import get_logger
 from backend.core.redis import redis, key_builder
 from backend.core.settings import settings
+from backend.profile.repository import ProfileRepository
 
 logger = get_logger(__name__)
 
@@ -24,7 +25,8 @@ class AuthService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.repo = UserRepository(self.session)
+        self.user_repo = UserRepository(self.session)
+        self.profile_repo = ProfileRepository(self.session)
 
     @staticmethod
     def _authenticate(user_id: int) -> TokenResponse:
@@ -36,7 +38,13 @@ class AuthService:
             "password": hash_password(credentials.password),
         }
         try:
-            user = await self.repo.create(data)
+            user = await self.user_repo.create(data)
+            await self.profile_repo.create(
+                {
+                    "username": f"user_{user.id}",
+                    "user_id": user.id,
+                }
+            )
         except IntegrityError as e:
             logger.error("User already exists", extra={"email": credentials.email})
             raise AlreadyExists() from e
@@ -44,7 +52,7 @@ class AuthService:
         return self._authenticate(user.id)
 
     async def login(self, credentials: CredentialsSchema) -> TokenResponse:
-        user = await self.repo.get_by_email(credentials.email)
+        user = await self.user_repo.get_by_email(credentials.email)
         if user is None:
             verify_password(credentials.password, self._DUMMY_PASSWORD_HASH)
             logger.warning("Login failed: user does not exist", extra={"email": credentials.email})
@@ -94,7 +102,7 @@ class AuthService:
         logger.info("User logged out", extra={"user_id": refresh_payload.sub})
 
     async def refresh(self, payload: TokenPayload) -> TokenResponse:
-        user = await self.repo.get_by_id(int(payload.sub))
+        user = await self.user_repo.get_by_id(int(payload.sub))
         if user is None or not user.is_active:
             logger.warning("Refresh failed: user unavailable", extra={"user_id": payload.sub})
             raise Unauthorized("Invalid token")
