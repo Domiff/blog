@@ -1,14 +1,15 @@
 # Blog API
 
-FastAPI project: a blog with JWT authentication, GraphQL for posts, and a SQLAdmin panel.
+FastAPI project: a blog with JWT authentication, GraphQL for posts, user profiles, and a SQLAdmin panel.
 
 ## Stack
 
 - FastAPI (`backend/main.py` → `create_app()` from `backend/core/setup.py`)
-- SQLAlchemy 2 async + Alembic (`backend/core/database.py`, `migrations/`)
+- PostgreSQL 16 (Docker Compose)
+- SQLAlchemy 2 async (asyncpg) + Alembic (`backend/core/database.py`, `migrations/`)
 - AuthX, JWT RS256, access 15 min / refresh 30 days (`backend/auth/security.py`)
 - Redis — revoked-token blocklist (`revoked:{token}`)
-- Strawberry GraphQL (`/graphql`)
+- Strawberry GraphQL (`/blog`)
 - SQLAdmin (`/admin`, Users and Posts sections)
 
 ## Layout
@@ -17,12 +18,23 @@ FastAPI project: a blog with JWT authentication, GraphQL for posts, and a SQLAdm
 backend/
   main.py            # app = create_app(), entrypoint for fastapi/uvicorn
   core/              # setup, settings, database, redis, logging, health
-  auth/              # models, /auth router, service, repository, sqladmin UserAdmin
-  blog/              # models, GraphQL schema/router, repository, sqladmin PostAdmin
+  auth/              # User model, /auth router, service, repository, sqladmin UserAdmin
+  profile/           # Profile model (public identity of a user), repository
+  blog/              # Post model, status enum, GraphQL schema/router, repository, sqladmin PostAdmin
   admin/             # setup_admin, AdminAuth (email login)
 migrations/          # Alembic
 keys/                # jwt-private.pem / jwt-public.pem (not committed to git)
+docker-compose.yaml  # PostgreSQL
 ```
+
+## Data model
+
+- `users` — auth data: email, password hash, `is_active`, `is_superuser`
+- `profiles` — one per user (`user_id` unique): `username`, `bio`
+- `posts` — `title`, `body`, `status` (`draft` / `published`), `published_at`, `author_id` → `profiles`
+
+Deleting a user deletes their profile, deleting a profile deletes its posts (`ON DELETE CASCADE`).
+All timestamps are stored as `timestamptz`.
 
 ## Endpoints
 
@@ -32,7 +44,7 @@ keys/                # jwt-private.pem / jwt-public.pem (not committed to git)
 | `POST /auth/login` | login → access + refresh |
 | `POST /auth/logout` | revoke tokens (writes to the Redis blocklist) |
 | `POST /auth/refresh` | rotate the pair using the refresh token |
-| `/graphql` | `get_post_list`, `get_post_by_id`, `create_post`, `update_post`, `delete_post` |
+| `/blog` | GraphQL: `get_post_list`, `get_post_by_id`, `create_post`, `update_post`, `delete_post`, `publish_post` |
 | `/admin` | SQLAdmin, email login (see `backend/admin/auth.py`) |
 | `GET /health` | `{"status", "database"}` |
 | `/openapi.json` | only when `IS_DEBUG=true` |
@@ -40,8 +52,8 @@ keys/                # jwt-private.pem / jwt-public.pem (not committed to git)
 ## Requirements
 
 - Python >= 3.14, `uv`
+- Docker (PostgreSQL)
 - Redis on `localhost:6379` (always required — blocklist check in `security.py`)
-- SQLite locally (`IS_DEBUG=true`), PostgreSQL in prod (`IS_DEBUG=false`)
 
 ## Quickstart
 
@@ -53,44 +65,51 @@ mkdir -p keys
 openssl genrsa -out keys/jwt-private.pem 2048
 openssl rsa -in keys/jwt-private.pem -pubout -out keys/jwt-public.pem
 
-# 2. Redis
+# 2. .env (then edit the values)
+cp .env.example .env
+
+# 3. PostgreSQL (reads POSTGRES_* from .env)
+docker compose up -d
+
+# 4. Redis
 docker run -d -p 6379:6379 redis:7
 
-# 3. .env
-cat > .env <<EOF
-ADMIN_SECRET_KEY=change-me
-EOF
-
-# 4. Migrations
+# 5. Migrations
 uv run alembic upgrade head
 
-# 5. Run
+# 6. Run
 uv run fastapi run backend/main.py
 # or: uv run uvicorn backend.main:app --reload
 ```
 
-Open: API `http://127.0.0.1:8000`, GraphQL `.../graphql`, admin `.../admin`.
+Open: API `http://127.0.0.1:8000`, GraphQL `.../blog`, admin `.../admin`.
 
 ## Environment variables
 
-Only `ADMIN_SECRET_KEY` is required. Everything else has defaults (`backend/core/settings.py`):
+See `.env.example`. Defaults are in `backend/core/settings.py`:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ADMIN_SECRET_KEY` | — | admin session secret |
-| `IS_DEBUG` | `true` | `true` → SQLite, `false` → PostgreSQL |
-| `DB_URL` | empty | override the whole DB URL |
-| `SQLITE_URL` | `sqlite+aiosqlite:///db.sqlite3` | local database |
-| `POSTGRES_*` | `localhost:5432`, placeholders | prod database (assembled in `get_pg_url()`) |
-| `REDIS_HOST/PORT/DB` | `localhost/6379/0` | assembled into `REDIS_URL` |
+| `ADMIN_SECRET_KEY` | — (required) | admin session secret |
+| `IS_DEBUG` | `true` | enables `/openapi.json` |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | placeholders | database credentials, also used by Docker Compose |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | `localhost` / `5432` | database address (URL assembled in `get_url()`) |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB` | `localhost` / `6379` / `0` | assembled into `REDIS_URL` |
 | `ADMIN_BASE_URL` | `/admin` | admin path |
 | `LOG_LEVEL` | `INFO` | log level for `backend.*` |
 
 ## Migrations
 
 ```bash
-uv run alembic upgrade head                    # apply
+uv run alembic upgrade head                      # apply
 uv run alembic revision --autogenerate -m "msg"  # new
+```
+
+Always review autogenerated migrations. Alembic does not detect everything (e.g. some type parameter changes),
+and PostgreSQL enum types must be dropped manually in `downgrade()`:
+
+```python
+sa.Enum(name="post_status").drop(op.get_bind(), checkfirst=True)
 ```
 
 Admin login: the user must exist in the DB and be active (`is_active`); credentials are the email + password from `/auth/register`.
