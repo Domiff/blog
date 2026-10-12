@@ -17,3 +17,10 @@ class PermissionDenied(GraphQLAppError):
 class NotFound(GraphQLAppError):
     CODE = "NOT_FOUND"
     MESSAGE = "Not found"
+
+
+def mask_error(error: GraphQLError) -> bool:
+    original = error.original_error
+    if original is None:
+        return False
+    return not isinstance(original, GraphQLError)
