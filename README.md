@@ -1,6 +1,6 @@
 # Blog API
 
-FastAPI project: a blog with JWT authentication, GraphQL for posts, user profiles, and a SQLAdmin panel.
+FastAPI project: a blog with JWT authentication, a GraphQL API for posts and profiles, and a SQLAdmin panel.
 
 ## Stack
 
@@ -9,7 +9,7 @@ FastAPI project: a blog with JWT authentication, GraphQL for posts, user profile
 - SQLAlchemy 2 async (asyncpg) + Alembic (`backend/core/database.py`, `migrations/`)
 - AuthX, JWT RS256, access 15 min / refresh 30 days (`backend/auth/security.py`)
 - Redis — revoked-token blocklist (`revoked:{token}`)
-- Strawberry GraphQL (`/blog`)
+- Strawberry GraphQL — one schema at `/graphql` (`backend/core/schemas/graphql.py`)
 - SQLAdmin (`/admin`, Users and Posts sections)
 
 ## Layout
@@ -17,10 +17,17 @@ FastAPI project: a blog with JWT authentication, GraphQL for posts, user profile
 ```
 backend/
   main.py            # app = create_app(), entrypoint for fastapi/uvicorn
-  core/              # setup, settings, database, redis, logging, health
+  core/
+    setup.py         # app factory: routers, GraphQL router, admin
+    context.py       # GraphQL context (session, current profile), rollback-on-error extension
+                     # (MaskErrors is attached in schemas/graphql.py)
+    permissions.py   # GraphQL permissions (IsAuthenticated)
+    schemas/         # rest.py — base Pydantic schemas, graphql.py — merged Strawberry schema
+    exceptions/      # rest.py — HTTP exceptions, graphql.py — GraphQL errors with extensions.code
+    ...              # settings, database, depends, redis, logging, health
   auth/              # User model, /auth router, service, repository, sqladmin UserAdmin
-  profile/           # Profile model (public identity of a user), repository
-  blog/              # Post model, status enum, GraphQL schema/router, repository, sqladmin PostAdmin
+  profile/           # Profile model, repository, GraphQL types/queries/mutations
+  blog/              # Post model, status enum, repository, GraphQL types/queries/mutations, sqladmin PostAdmin
   admin/             # setup_admin, AdminAuth (email login)
 migrations/          # Alembic
 keys/                # jwt-private.pem / jwt-public.pem (not committed to git)
@@ -33,6 +40,7 @@ docker-compose.yaml  # PostgreSQL
 - `profiles` — one per user (`user_id` unique): `username`, `bio`
 - `posts` — `title`, `body`, `status` (`draft` / `published`), `published_at`, `author_id` → `profiles`
 
+A profile is created on registration with the username `user_<id>`.
 Deleting a user deletes their profile, deleting a profile deletes its posts (`ON DELETE CASCADE`).
 All timestamps are stored as `timestamptz`.
 
@@ -40,14 +48,64 @@ All timestamps are stored as `timestamptz`.
 
 | Path | What |
 |---|---|
-| `POST /auth/register` | register `{email, password}` → 201 |
+| `POST /auth/register` | register `{email, password}` → 201, creates the user's profile |
 | `POST /auth/login` | login → access + refresh |
 | `POST /auth/logout` | revoke tokens (writes to the Redis blocklist) |
 | `POST /auth/refresh` | rotate the pair using the refresh token |
-| `/blog` | GraphQL: `get_post_list`, `get_post_by_id`, `create_post`, `update_post`, `delete_post`, `publish_post` |
+| `/graphql` | GraphQL API (see below), GraphiQL in the browser |
 | `/admin` | SQLAdmin, email login (see `backend/admin/auth.py`) |
 | `GET /health` | `{"status", "database"}` |
 | `/openapi.json` | only when `IS_DEBUG=true` |
+
+## GraphQL
+
+Queries (public):
+
+| Field | Returns |
+|---|---|
+| `posts` | all posts |
+| `postById(postId)` | a post or `null` |
+| `profiles` | all profiles |
+| `profileById(profileId)` / `profileByUsername(username)` | a profile or `null` |
+
+Related fields are resolved on demand: `Post.author` → `Profile`, `Profile.posts` → `[Post]`.
+
+Mutations (require `Authorization: Bearer <access token>`):
+
+| Field | What |
+|---|---|
+| `createPost(input)` | create a draft; the author is the current profile |
+| `updatePost(postId, input)` | update own post |
+| `deletePost(postId)` | delete own post |
+| `publishPost(postId)` | publish own draft |
+| `updateProfile(input)` | update the current profile (`username`, `bio`) |
+
+Example:
+
+```graphql
+mutation {
+  createPost(input: {title: "Hello", body: "First post"}) {
+    id
+    status
+    author { username }
+  }
+}
+```
+
+In GraphiQL, put the token on the **Headers** tab:
+
+```json
+{"Authorization": "Bearer eyJ..."}
+```
+
+Errors come in `errors[]`; application errors carry a code in `extensions.code`
+(`FORBIDDEN`, `NOT_FOUND`). Without a token, mutations return `Authentication required`.
+If a request has errors, its transaction is rolled back.
+
+Unexpected server errors (e.g. database errors) are masked as `Unexpected error.` by the
+`MaskErrors` extension; details are only in the server logs. Application errors
+(`GraphQLError` subclasses from `backend/core/exceptions/graphql.py`) and query validation
+errors are returned as is.
 
 ## Requirements
 
@@ -82,7 +140,7 @@ uv run fastapi run backend/main.py
 # or: uv run uvicorn backend.main:app --reload
 ```
 
-Open: API `http://127.0.0.1:8000`, GraphQL `.../blog`, admin `.../admin`.
+Open: API `http://127.0.0.1:8000`, GraphQL `.../graphql`, admin `.../admin`.
 
 ## Environment variables
 
@@ -92,6 +150,7 @@ See `.env.example`. Defaults are in `backend/core/settings.py`:
 |---|---|---|
 | `ADMIN_SECRET_KEY` | — (required) | admin session secret |
 | `IS_DEBUG` | `true` | enables `/openapi.json` |
+| `GRAPHQL_PATH` | `/graphql` | GraphQL endpoint path |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | placeholders | database credentials, also used by Docker Compose |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `localhost` / `5432` | database address (URL assembled in `get_url()`) |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB` | `localhost` / `6379` / `0` | assembled into `REDIS_URL` |
