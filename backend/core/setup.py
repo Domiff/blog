@@ -9,11 +9,12 @@ from backend.admin.setup import setup_admin
 from backend.auth.admin import UserAdmin
 from backend.auth.security import setup_auth_errors
 from backend.auth.router import router as auth_router
-from backend.blog.admin import PostAdmin
+from backend.blog.admin import CommentAdmin, PostAdmin
 from backend.core.context import get_context
 from backend.core.settings import settings
 from backend.core.health import router as health_router
 from backend.core.logging import get_logger, setup_logging
+from backend.profile.admin import ProfileAdmin
 from backend.core.schemas.graphql import schema
 
 logger = get_logger(__name__)
@@ -59,6 +60,8 @@ def create_app() -> FastAPI:
 
     admin = setup_admin(app)
     admin.add_view(UserAdmin)
+    admin.add_view(ProfileAdmin)
     admin.add_view(PostAdmin)
+    admin.add_view(CommentAdmin)
 
     return app
