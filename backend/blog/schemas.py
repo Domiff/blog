@@ -2,10 +2,12 @@ from datetime import datetime
 from typing import Annotated, TYPE_CHECKING
 
 import strawberry
+from strawberry.tools import merge_types
 
 from backend.blog.enums import PostStatus
-from backend.blog.repository import PostRepository
-from backend.blog.models import Post
+from backend.blog.repository import PostRepository, CommentRepository
+from backend.blog.models import Post, Comment
+from backend.blog.permissions import require_owner
 from backend.core.exceptions.graphql import PermissionDenied, NotFound
 from backend.core.permissions import IsAuthenticated
 from backend.profile.repository import ProfileRepository
@@ -13,6 +15,7 @@ from backend.profile.repository import ProfileRepository
 
 if TYPE_CHECKING:
     from backend.profile.schemas import ProfileType
+    from backend.profile.models import Profile
 
 
 @strawberry.input
@@ -47,6 +50,11 @@ class PostType:
         profile = await ProfileRepository(info.context.session).get_by_id(self.author_id)
         return ProfileType.from_model(profile)
 
+    @strawberry.field
+    async def comments(self, info: strawberry.Info) -> list["CommentType"]:
+        comments = await CommentRepository(info.context.session).list_by_post(self.id)
+        return [CommentType.from_model(comment) for comment in comments]
+
     @classmethod
     def from_model(cls, post: Post) -> "PostType":
         return cls(
@@ -61,8 +69,47 @@ class PostType:
         )
 
 
+@strawberry.input        
+class CreateCommentInput:
+    body: str
+    post_id: int
+
+
+@strawberry.input
+class UpdateCommentInput:
+    body: str
+
+
+@strawberry.type(name="Comment")
+class CommentType:
+    id: int
+    body: str
+    created_at: datetime
+    updated_at: datetime
+    author_id: strawberry.Private[int]
+
+    @strawberry.field
+    async def author(
+        self, info: strawberry.Info
+    ) -> Annotated["ProfileType", strawberry.lazy("backend.profile.schemas")]:
+        from backend.profile.schemas import ProfileType
+
+        profile = await ProfileRepository(info.context.session).get_by_id(self.author_id)
+        return ProfileType.from_model(profile)
+    
+    @classmethod
+    def from_model(cls, comment: Comment) -> "CommentType":
+        return cls(
+            id=comment.id,
+            body=comment.body,
+            created_at=comment.created_at,
+            updated_at=comment.updated_at,
+            author_id=comment.author_id,
+        )
+
+
 @strawberry.type
-class BlogQuery:
+class PostQuery:
     @strawberry.field
     async def posts(self, info: strawberry.Info) -> list[PostType] | None:
         repo = PostRepository(info.context.session)
@@ -81,15 +128,7 @@ class BlogQuery:
 
 
 @strawberry.type
-class BlogMutation:
-    @staticmethod
-    def _get_own_post(post: Post | None, info: strawberry.Info) -> Post:
-        if post is None:
-            raise NotFound("Post not found")
-        if post.author_id != info.context.profile.id:
-            raise PermissionDenied()
-        return post
-
+class PostMutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_post(self, info: strawberry.Info, input: CreatePostInput) -> PostType:
         repo = PostRepository(info.context.session)
@@ -103,20 +142,70 @@ class BlogMutation:
         self, info: strawberry.Info, post_id: int, input: UpdatePostInput
     ) -> PostType:
         repo = PostRepository(info.context.session)
-        post = BlogMutation._get_own_post(await repo.get_by_id(post_id), info)
+        post = require_owner(await repo.get_by_id(post_id), info, "Post")
         post = await repo.update(post, strawberry.asdict(input))
         return PostType.from_model(post)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def delete_post(self, info: strawberry.Info, post_id: int) -> None:
         repo = PostRepository(info.context.session)
-        post = BlogMutation._get_own_post(await repo.get_by_id(post_id), info)
+        post = require_owner(await repo.get_by_id(post_id), info, "Post")
         await repo.delete(post)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def publish_post(self, info: strawberry.Info, post_id: int) -> PostType | None:
         repo = PostRepository(info.context.session)
-        post = BlogMutation._get_own_post(await repo.get_by_id(post_id), info)
+        post = require_owner(await repo.get_by_id(post_id), info, "Post")
         if post.status != PostStatus.DRAFT:
             return None
         return PostType.from_model(await repo.publish(post))
+
+
+@strawberry.type
+class CommentQuery:
+    @strawberry.field
+    async def comment_by_id(self, info: strawberry.Info, comment_id: int) -> CommentType | None:
+        repo = CommentRepository(info.context.session)
+        comment = await repo.get_by_id(comment_id)
+        if not comment:
+            return None
+        return CommentType.from_model(comment)
+
+
+@strawberry.type
+class CommentMutation:
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def create_comment(self, info: strawberry.Info, input: CreateCommentInput) -> CommentType:
+        post_repo = PostRepository(info.context.session)
+        post = await post_repo.get_by_id(input.post_id)
+        
+        if not post:
+            raise NotFound("Post not found")
+            
+        if post.status != PostStatus.PUBLISHED:
+            raise NotFound("Published post not found")
+
+        comment_repo = CommentRepository(info.context.session)
+        input_as_dict = strawberry.asdict(input)
+        input_as_dict["author_id"] = info.context.profile.id
+        comment = await comment_repo.create(input_as_dict)
+        return CommentType.from_model(comment)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def update_comment(
+        self, info: strawberry.Info, comment_id: int, input: UpdateCommentInput
+    ) -> CommentType:
+        repo = CommentRepository(info.context.session)
+        comment = require_owner(await repo.get_by_id(comment_id), info, "Comment")
+        comment = await repo.update(comment, strawberry.asdict(input))
+        return CommentType.from_model(comment)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def delete_comment(self, info: strawberry.Info, comment_id: int) -> None:
+        repo = CommentRepository(info.context.session)
+        comment = require_owner(await repo.get_by_id(comment_id), info, "Comment")
+        await repo.delete(comment)
+
+
+BlogQuery = merge_types("BlogQuery", (PostQuery, CommentQuery))
+BlogMutation = merge_types("BlogMutation", (PostMutation, CommentMutation))

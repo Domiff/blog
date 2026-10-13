@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from backend.blog.enums import PostStatus
-from backend.blog.models import Post
+from backend.blog.models import Post, Comment
 from backend.core.database import BaseRepository
 
 
@@ -49,3 +49,33 @@ class PostRepository(BaseRepository):
         post.published_at = datetime.now(tz=UTC)
         await self.session.flush()
         return post
+
+
+class CommentRepository(BaseRepository):
+    async def create(self, data: dict[str, Any]) -> Comment:
+        comment = Comment(**data)
+        self.session.add(comment)
+        await self.session.flush()
+        return comment
+
+    async def list_by_post(self, post_id: int) -> Sequence[Comment]:
+        query = select(Comment).where(Comment.post_id == post_id)
+        comment = await self.session.scalars(query)
+        return comment.all()
+
+    async def get_by_id(self, id: int) -> Comment | None:
+        return await self.session.get(Comment, id)
+
+    async def update(self, comment: Comment, data: dict[str, Any]) -> Comment:
+        for key, value in data.items():
+            if not hasattr(Comment, key):
+                raise AttributeError(f"Comment has no field {key!r}")
+            if value is None:
+                continue
+            setattr(comment, key, value)
+        await self.session.flush()
+        return comment
+
+    async def delete(self, comment: Comment) -> None:
+        await self.session.delete(comment)
+        await self.session.flush()
