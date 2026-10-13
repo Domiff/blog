@@ -18,7 +18,11 @@ class Post(Base):
     title: Mapped[str] = mapped_column(String(255), index=True)
     body: Mapped[str] = mapped_column(Text)
     status: Mapped[PostStatus] = mapped_column(
-        Enum(PostStatus, name="post_status", values_callable=lambda e: [m.value for m in e]),
+        Enum(
+            PostStatus,
+            name="post_status",
+            values_callable=lambda e: [m.value for m in e],
+        ),
         default=PostStatus.DRAFT,
         server_default=PostStatus.DRAFT.value,
     )
@@ -29,6 +33,28 @@ class Post(Base):
         ForeignKey("profiles.id", ondelete="CASCADE"), index=True
     )
     author: Mapped["Profile"] = relationship(back_populates="posts", lazy="raise")
+    comments: Mapped[list["Comment"]] = relationship(
+        back_populates="post", lazy="raise", passive_deletes=True
+    )
 
     def __str__(self) -> str:
         return self.title
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    body: Mapped[str] = mapped_column(Text)
+
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("posts.id", ondelete="CASCADE"), index=True
+    )
+    author_id: Mapped[int] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+
+    post: Mapped["Post"] = relationship(back_populates="comments", lazy="raise")
+    author: Mapped["Profile"] = relationship(back_populates="comments", lazy="raise")
+
+    def __str__(self) -> str:
+        return f"Comment {self.id}"

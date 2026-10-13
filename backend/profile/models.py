@@ -8,7 +8,7 @@ from backend.core.database import Base
 
 if TYPE_CHECKING:
     from backend.auth.models import User
-    from backend.blog.models import Post
+    from backend.blog.models import Post, Comment
 
 
 class Profile(Base):
@@ -22,6 +22,9 @@ class Profile(Base):
     )
     user: Mapped["User"] = relationship(back_populates="profile", lazy="raise")
     posts: Mapped[list["Post"]] = relationship(
+        back_populates="author", lazy="raise", passive_deletes=True
+    )
+    comments: Mapped[list["Comment"]] = relationship(
         back_populates="author", lazy="raise", passive_deletes=True
     )
 
