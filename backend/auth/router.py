@@ -3,13 +3,11 @@ from fastapi import APIRouter, status
 from backend.auth.depends import AuthServiceDep, BearerDep, TokenPayloadDep
 from backend.auth.schemas import CredentialsSchema, LogoutSchema
 
-
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(
-    data: CredentialsSchema, service: AuthServiceDep
-):
+async def register(data: CredentialsSchema, service: AuthServiceDep):
     return await service.register(data)
 
 

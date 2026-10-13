@@ -7,7 +7,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.blog.enums import PostStatus
 from backend.core.database import Base
 
-
 if TYPE_CHECKING:
     from backend.profile.models import Profile
 

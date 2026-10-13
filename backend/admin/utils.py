@@ -7,4 +7,5 @@ def truncate(limit: int = 80):
         if len(text) <= limit:
             return text
         return f"{text[:limit].rstrip()}..."
+
     return formatter

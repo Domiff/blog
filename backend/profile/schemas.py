@@ -7,7 +7,6 @@ from backend.core.permissions import IsAuthenticated
 from backend.profile.models import Profile
 from backend.profile.repository import ProfileRepository
 
-
 if TYPE_CHECKING:
     from backend.blog.schemas import PostType
 
@@ -25,7 +24,9 @@ class ProfileType:
     bio: str | None
 
     @strawberry.field
-    async def posts(self, info: strawberry.Info) -> list[Annotated["PostType", strawberry.lazy("backend.blog.schemas")]]:
+    async def posts(
+        self, info: strawberry.Info
+    ) -> list[Annotated["PostType", strawberry.lazy("backend.blog.schemas")]]:
         from backend.blog.schemas import PostType
 
         posts = await PostRepository(info.context.session).list_by_author(self.id)

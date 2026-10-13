@@ -55,10 +55,14 @@ class AuthService:
         user = await self.user_repo.get_by_email(credentials.email)
         if user is None:
             verify_password(credentials.password, self._DUMMY_PASSWORD_HASH)
-            logger.warning("Login failed: user does not exist", extra={"email": credentials.email})
+            logger.warning(
+                "Login failed: user does not exist", extra={"email": credentials.email}
+            )
             raise Unauthorized("Invalid credentials")
         if not verify_password(credentials.password, user.password):
-            logger.warning("Login failed: password mismatch", extra={"user_id": user.id})
+            logger.warning(
+                "Login failed: password mismatch", extra={"user_id": user.id}
+            )
             raise Unauthorized("Invalid credentials")
         if not user.is_active:
             logger.warning("Login failed: user is inactive", extra={"user_id": user.id})
@@ -104,7 +108,9 @@ class AuthService:
     async def refresh(self, payload: TokenPayload) -> TokenResponse:
         user = await self.user_repo.get_by_id(int(payload.sub))
         if user is None or not user.is_active:
-            logger.warning("Refresh failed: user unavailable", extra={"user_id": payload.sub})
+            logger.warning(
+                "Refresh failed: user unavailable", extra={"user_id": payload.sub}
+            )
             raise Unauthorized("Invalid token")
         logger.info("Tokens refreshed", extra={"user_id": user.id})
         return self._authenticate(user.id)

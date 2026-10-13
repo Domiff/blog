@@ -17,6 +17,8 @@ schema = strawberry.Schema(
     mutation=Mutation,
     extensions=[
         RollbackOnErrorExtension,
-        partial(MaskErrors, should_mask_error=mask_error, error_message="Unexpected error."),
+        partial(
+            MaskErrors, should_mask_error=mask_error, error_message="Unexpected error."
+        ),
     ],
 )

@@ -12,7 +12,6 @@ from backend.core.exceptions.graphql import PermissionDenied, NotFound
 from backend.core.permissions import IsAuthenticated
 from backend.profile.repository import ProfileRepository
 
-
 if TYPE_CHECKING:
     from backend.profile.schemas import ProfileType
     from backend.profile.models import Profile
@@ -47,7 +46,9 @@ class PostType:
     ) -> Annotated["ProfileType", strawberry.lazy("backend.profile.schemas")]:
         from backend.profile.schemas import ProfileType
 
-        profile = await ProfileRepository(info.context.session).get_by_id(self.author_id)
+        profile = await ProfileRepository(info.context.session).get_by_id(
+            self.author_id
+        )
         return ProfileType.from_model(profile)
 
     @strawberry.field
@@ -69,7 +70,7 @@ class PostType:
         )
 
 
-@strawberry.input        
+@strawberry.input
 class CreateCommentInput:
     body: str
     post_id: int
@@ -94,9 +95,11 @@ class CommentType:
     ) -> Annotated["ProfileType", strawberry.lazy("backend.profile.schemas")]:
         from backend.profile.schemas import ProfileType
 
-        profile = await ProfileRepository(info.context.session).get_by_id(self.author_id)
+        profile = await ProfileRepository(info.context.session).get_by_id(
+            self.author_id
+        )
         return ProfileType.from_model(profile)
-    
+
     @classmethod
     def from_model(cls, comment: Comment) -> "CommentType":
         return cls(
@@ -130,7 +133,9 @@ class PostQuery:
 @strawberry.type
 class PostMutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def create_post(self, info: strawberry.Info, input: CreatePostInput) -> PostType:
+    async def create_post(
+        self, info: strawberry.Info, input: CreatePostInput
+    ) -> PostType:
         repo = PostRepository(info.context.session)
         input_as_dict = strawberry.asdict(input)
         input_as_dict["author_id"] = info.context.profile.id
@@ -153,7 +158,9 @@ class PostMutation:
         await repo.delete(post)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def publish_post(self, info: strawberry.Info, post_id: int) -> PostType | None:
+    async def publish_post(
+        self, info: strawberry.Info, post_id: int
+    ) -> PostType | None:
         repo = PostRepository(info.context.session)
         post = require_owner(await repo.get_by_id(post_id), info, "Post")
         if post.status != PostStatus.DRAFT:
@@ -164,7 +171,9 @@ class PostMutation:
 @strawberry.type
 class CommentQuery:
     @strawberry.field
-    async def comment_by_id(self, info: strawberry.Info, comment_id: int) -> CommentType | None:
+    async def comment_by_id(
+        self, info: strawberry.Info, comment_id: int
+    ) -> CommentType | None:
         repo = CommentRepository(info.context.session)
         comment = await repo.get_by_id(comment_id)
         if not comment:
@@ -175,13 +184,15 @@ class CommentQuery:
 @strawberry.type
 class CommentMutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def create_comment(self, info: strawberry.Info, input: CreateCommentInput) -> CommentType:
+    async def create_comment(
+        self, info: strawberry.Info, input: CreateCommentInput
+    ) -> CommentType:
         post_repo = PostRepository(info.context.session)
         post = await post_repo.get_by_id(input.post_id)
-        
+
         if not post:
             raise NotFound("Post not found")
-            
+
         if post.status != PostStatus.PUBLISHED:
             raise NotFound("Published post not found")
 

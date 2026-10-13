@@ -23,7 +23,11 @@ class PostRepository(BaseRepository):
         return posts.all()
 
     async def list_by_author(self, author_id: int) -> Sequence[Post]:
-        query = select(Post).options(joinedload(Post.author)).where(Post.author_id == author_id)
+        query = (
+            select(Post)
+            .options(joinedload(Post.author))
+            .where(Post.author_id == author_id)
+        )
         posts = await self.session.scalars(query)
         return posts.all()
 

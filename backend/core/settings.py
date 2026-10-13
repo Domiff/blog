@@ -69,7 +69,9 @@ class RedisSettings(AppSettings):
 
     def model_post_init(self, __context) -> None:
         if not self.REDIS_URL:
-            self.REDIS_URL = f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+            self.REDIS_URL = (
+                f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+            )
 
 
 class Settings:
