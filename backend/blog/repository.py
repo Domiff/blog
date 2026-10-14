@@ -31,6 +31,12 @@ class PostRepository(BaseRepository):
         posts = await self.session.scalars(query)
         return posts.all()
 
+    async def count_by_author(self, author_id: int) -> int:
+        query = (
+            select(func.count()).select_from(Post).where(Post.author_id == author_id)
+        )
+        return await self.session.scalar(query)
+
     async def get_by_id(self, id: int) -> Post | None:
         return await self.session.get(Post, id)
 

@@ -31,6 +31,12 @@ class ProfileType:
 
         posts = await PostRepository(info.context.session).list_by_author(self.id)
         return [PostType.from_model(post) for post in posts]
+        
+    @strawberry.field
+    async def posts_count(
+        self, info: strawberry.Info
+    ) -> int:
+        return await PostRepository(info.context.session).count_by_author(self.id)
 
     @classmethod
     def from_model(cls, profile: Profile) -> "ProfileType":
