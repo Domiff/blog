@@ -14,7 +14,6 @@ from backend.profile.repository import ProfileRepository
 
 if TYPE_CHECKING:
     from backend.profile.schemas import ProfileType
-    from backend.profile.models import Profile
 
 
 @strawberry.input
