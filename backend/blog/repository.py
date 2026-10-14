@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from datetime import datetime, UTC
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
 
 from backend.blog.enums import PostStatus
@@ -66,6 +66,12 @@ class CommentRepository(BaseRepository):
         query = select(Comment).where(Comment.post_id == post_id)
         comment = await self.session.scalars(query)
         return comment.all()
+
+    async def count_by_post(self, post_id: int) -> int:
+        query = (
+            select(func.count()).select_from(Comment).where(Comment.post_id == post_id)
+        )
+        return await self.session.scalar(query)
 
     async def get_by_id(self, id: int) -> Comment | None:
         return await self.session.get(Comment, id)

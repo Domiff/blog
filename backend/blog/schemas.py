@@ -55,6 +55,10 @@ class PostType:
         comments = await CommentRepository(info.context.session).list_by_post(self.id)
         return [CommentType.from_model(comment) for comment in comments]
 
+    @strawberry.field
+    async def comments_count(self, info: strawberry.Info) -> int:
+        return await CommentRepository(info.context.session).count_by_post(self.id)
+
     @classmethod
     def from_model(cls, post: Post) -> "PostType":
         return cls(
