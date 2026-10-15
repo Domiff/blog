@@ -41,7 +41,7 @@ class BaseRepository:
         self.session: AsyncSession = session
 
 
-engine = create_async_engine(settings.db.get_url())
+engine = create_async_engine(settings.db.get_url(), echo=settings.db.DB_ECHO)
 session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 

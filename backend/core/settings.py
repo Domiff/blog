@@ -27,6 +27,7 @@ class DBSettings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_HOST: str
     POSTGRES_PORT: int
+    DB_ECHO: bool = False
 
     def get_url(self) -> str:
         return (

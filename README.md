@@ -170,6 +170,7 @@ See `.env.example`. Defaults are in `backend/core/settings.py`:
 | `GRAPHQL_PATH` | `/graphql` | GraphQL endpoint path |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | placeholders | database credentials, also used by Docker Compose |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `localhost` / `5432` | database address (URL assembled in `get_url()`) |
+| `DB_ECHO` | `false` | log all SQL queries (for debugging) |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB` | `localhost` / `6379` / `0` | assembled into `REDIS_URL` |
 | `ADMIN_BASE_URL` | `/admin` | admin path |
 | `LOG_LEVEL` | `INFO` | log level for `backend.*` |
