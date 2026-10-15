@@ -3,7 +3,6 @@ from datetime import datetime, UTC
 from typing import Any
 
 from sqlalchemy import select, func
-from sqlalchemy.orm import joinedload
 
 from backend.blog.enums import PostStatus
 from backend.blog.models import Post, Comment
@@ -18,14 +17,13 @@ class PostRepository(BaseRepository):
         return post
 
     async def list(self) -> Sequence[Post]:
-        query = select(Post).order_by(Post.id).options(joinedload(Post.author))
+        query = select(Post).order_by(Post.id)
         posts = await self.session.scalars(query)
         return posts.all()
 
     async def list_by_author(self, author_id: int) -> Sequence[Post]:
         query = (
             select(Post)
-            .options(joinedload(Post.author))
             .where(Post.author_id == author_id)
         )
         posts = await self.session.scalars(query)
