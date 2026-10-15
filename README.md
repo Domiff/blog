@@ -19,16 +19,17 @@ backend/
   main.py            # app = create_app(), entrypoint for fastapi/uvicorn
   core/
     setup.py         # app factory: routers, GraphQL router, admin
-    context.py       # GraphQL context (session, current profile), rollback-on-error extension
+    context.py       # GraphQL context (session, current profile, DataLoaders), rollback-on-error extension
                      # (MaskErrors is attached in schemas/graphql.py)
     permissions.py   # GraphQL permissions (IsAuthenticated)
     schemas/         # rest.py — base Pydantic schemas, graphql.py — merged Strawberry schema
     exceptions/      # rest.py — HTTP exceptions, graphql.py — GraphQL errors with extensions.code
     ...              # settings, database, depends, redis, logging, health
   auth/              # User model, /auth router, service, repository, sqladmin UserAdmin
-  profile/           # Profile model, repository, GraphQL types/queries/mutations, sqladmin ProfileAdmin
+  profile/           # Profile model, repository, GraphQL types/queries/mutations, DataLoaders,
+                     # sqladmin ProfileAdmin
   blog/              # Post and Comment models, status enum, repositories, GraphQL types/queries/mutations,
-                     # require_owner (permissions.py), sqladmin PostAdmin and CommentAdmin
+                     # DataLoaders, require_owner (permissions.py), sqladmin PostAdmin and CommentAdmin
   admin/             # setup_admin, AdminAuth (email login)
 migrations/          # Alembic
 keys/                # jwt-private.pem / jwt-public.pem (not committed to git)
@@ -73,7 +74,7 @@ Queries (public):
 | `commentById(commentId)` | a comment or `null` |
 
 Related fields are resolved on demand: `Post.author` → `Profile`, `Post.comments` → `[Comment]`,
-`Comment.author` → `Profile`, `Profile.posts` → `[Post]`.
+`Post.commentsCount`, `Comment.author` → `Profile`, `Profile.posts` → `[Post]`, `Profile.postsCount`.
 
 Mutations (require `Authorization: Bearer <access token>`):
 
@@ -126,6 +127,38 @@ Unexpected server errors (e.g. database errors) are masked as `Unexpected error.
 `MaskErrors` extension; details are only in the server logs. Application errors
 (`GraphQLError` subclasses from `backend/core/exceptions/graphql.py`) and query validation
 errors are returned as is.
+
+### DataLoaders (N+1)
+
+Related fields are loaded through [DataLoaders](https://strawberry.rocks/docs/guides/dataloaders):
+resolvers call `loader.load(key)`, and all keys requested on one level of the query are loaded
+with a single SQL query (`WHERE ... IN (...)` or `GROUP BY`). The number of SQL queries does not
+depend on the number of returned objects.
+
+| Loader | Key → value | Used by | File |
+|---|---|---|---|
+| `profile_loaders.profile_by_id` | profile id → `Profile` | `Post.author`, `Comment.author` | `profile/loaders.py` |
+| `blog_loaders.posts_by_author` | profile id → `[Post]` | `Profile.posts` | `blog/loaders.py` |
+| `blog_loaders.posts_count_by_author` | profile id → `int` | `Profile.postsCount` | `blog/loaders.py` |
+| `blog_loaders.comments_by_post` | post id → `[Comment]` | `Post.comments` | `blog/loaders.py` |
+| `blog_loaders.comments_count_by_post` | post id → `int` | `Post.commentsCount` | `blog/loaders.py` |
+
+Loaders are created per request in `get_context` (`backend/core/context.py`), so their cache never
+leaks between requests. A batch function must return values in the same order and length as the keys.
+
+For example, this query runs 4–5 SQL queries regardless of the number of posts
+(without loaders: 1 + 3 per post + 1 per comment). Set `DB_ECHO=true` to see them:
+
+```graphql
+{
+  posts {
+    title
+    author { username }
+    commentsCount
+    comments { body author { username } }
+  }
+}
+```
 
 ## Requirements
 
