@@ -29,14 +29,14 @@ class ProfileType:
     ) -> list[Annotated["PostType", strawberry.lazy("backend.blog.schemas")]]:
         from backend.blog.schemas import PostType
 
-        posts = await PostRepository(info.context.session).list_by_author(self.id)
+        posts = await info.context.blog_loaders.posts_by_author.load(self.id)
         return [PostType.from_model(post) for post in posts]
-        
+
     @strawberry.field
     async def posts_count(
         self, info: strawberry.Info
     ) -> int:
-        return await PostRepository(info.context.session).count_by_author(self.id)
+        return await info.context.blog_loaders.posts_count_by_author.load(self.id)
 
     @classmethod
     def from_model(cls, profile: Profile) -> "ProfileType":

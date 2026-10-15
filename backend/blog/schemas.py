@@ -45,19 +45,17 @@ class PostType:
     ) -> Annotated["ProfileType", strawberry.lazy("backend.profile.schemas")]:
         from backend.profile.schemas import ProfileType
 
-        profile = await ProfileRepository(info.context.session).get_by_id(
-            self.author_id
-        )
+        profile = await info.context.profile_loaders.profile_by_id.load(self.author_id)
         return ProfileType.from_model(profile)
 
     @strawberry.field
     async def comments(self, info: strawberry.Info) -> list["CommentType"]:
-        comments = await CommentRepository(info.context.session).list_by_post(self.id)
+        comments = await info.context.blog_loaders.comments_by_post.load(self.id)
         return [CommentType.from_model(comment) for comment in comments]
 
     @strawberry.field
     async def comments_count(self, info: strawberry.Info) -> int:
-        return await CommentRepository(info.context.session).count_by_post(self.id)
+        return await info.context.blog_loaders.comments_count_by_post.load(self.id)
 
     @classmethod
     def from_model(cls, post: Post) -> "PostType":
@@ -98,9 +96,7 @@ class CommentType:
     ) -> Annotated["ProfileType", strawberry.lazy("backend.profile.schemas")]:
         from backend.profile.schemas import ProfileType
 
-        profile = await ProfileRepository(info.context.session).get_by_id(
-            self.author_id
-        )
+        profile = await info.context.profile_loaders.profile_by_id.load(self.author_id)
         return ProfileType.from_model(profile)
 
     @classmethod

@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.depends import CurrentUserDep
 from backend.core.depends import SessionDep
+from backend.blog.loaders import create_blog_loaders
 from backend.profile.models import Profile
+from backend.profile.loaders import create_profile_loaders
 from backend.profile.repository import ProfileRepository
 
 
@@ -21,6 +23,8 @@ class SessionContext(BaseContext):
         super().__init__()
         self.session = session
         self.profile = profile
+        self.blog_loaders = create_blog_loaders(session)
+        self.profile_loaders = create_profile_loaders(session)
 
 
 async def get_context(session: SessionDep, user: CurrentUserDep) -> SessionContext:

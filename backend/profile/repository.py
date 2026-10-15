@@ -19,6 +19,11 @@ class ProfileRepository(BaseRepository):
         profiles = await self.session.scalars(query)
         return profiles.all()
 
+    async def list_by_ids(self, ids: list[int]) -> Sequence[Profile]:
+        query = select(Profile).where(Profile.id.in_(ids))
+        profiles = await self.session.scalars(query)
+        return profiles.all()
+
     async def get_by_id(self, id: int) -> Profile | None:
         return await self.session.get(Profile, id)
 

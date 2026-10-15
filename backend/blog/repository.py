@@ -21,19 +21,23 @@ class PostRepository(BaseRepository):
         posts = await self.session.scalars(query)
         return posts.all()
 
-    async def list_by_author(self, author_id: int) -> Sequence[Post]:
+    async def list_by_authors(self, author_ids: list[int]) -> Sequence[Post]:
         query = (
             select(Post)
-            .where(Post.author_id == author_id)
+            .where(Post.author_id.in_(author_ids))
+            .order_by(Post.created_at.desc())
         )
         posts = await self.session.scalars(query)
         return posts.all()
 
-    async def count_by_author(self, author_id: int) -> int:
+    async def count_by_authors(self, author_ids: list[int]) -> dict[int, int]:
         query = (
-            select(func.count()).select_from(Post).where(Post.author_id == author_id)
+            select(Post.author_id, func.count())
+            .where(Post.author_id.in_(author_ids))
+            .group_by(Post.author_id)
         )
-        return await self.session.scalar(query)
+        result = await self.session.execute(query)
+        return dict(result.all())
 
     async def get_by_id(self, id: int) -> Post | None:
         return await self.session.get(Post, id)
@@ -66,16 +70,23 @@ class CommentRepository(BaseRepository):
         await self.session.flush()
         return comment
 
-    async def list_by_post(self, post_id: int) -> Sequence[Comment]:
-        query = select(Comment).where(Comment.post_id == post_id)
-        comment = await self.session.scalars(query)
-        return comment.all()
-
-    async def count_by_post(self, post_id: int) -> int:
+    async def list_by_posts(self, post_ids: list[int]) -> Sequence[Comment]:
         query = (
-            select(func.count()).select_from(Comment).where(Comment.post_id == post_id)
+            select(Comment)
+            .where(Comment.post_id.in_(post_ids))
+            .order_by(Comment.created_at.desc())
         )
-        return await self.session.scalar(query)
+        comments = await self.session.scalars(query)
+        return comments.all()
+
+    async def count_by_posts(self, post_ids: list[int]) -> dict[int, int]:
+        query = (
+            select(Comment.post_id, func.count())
+            .where(Comment.post_id.in_(post_ids))
+            .group_by(Comment.post_id)
+        )
+        result = await self.session.execute(query)
+        return dict(result.all())
 
     async def get_by_id(self, id: int) -> Comment | None:
         return await self.session.get(Comment, id)
