@@ -3,7 +3,6 @@ from typing import Annotated, TYPE_CHECKING
 import strawberry
 
 from backend.bookmark.models import PostBookmark
-from backend.bookmark.permissions import require_owner
 from backend.bookmark.repository import PostBookmarkRepository
 from backend.blog.repository import PostRepository
 from backend.core.exceptions.graphql import NotFound
@@ -70,5 +69,9 @@ class BookmarkMutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def delete_bookmark(self, info: strawberry.Info, post_id: int) -> None:
         repo = PostBookmarkRepository(info.context.session)
-        bookmark = require_owner(await repo.get_by_id(post_id), info, "PostBookmark")
+        bookmark = await repo.get_by_owner_and_post(
+            owner_id=info.context.profile.id, post_id=post_id
+        )
+        if bookmark is None:
+            raise NotFound("PostBookmark not found")
         await repo.delete(bookmark)
