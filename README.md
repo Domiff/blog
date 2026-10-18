@@ -1,6 +1,6 @@
 # Blog API
 
-FastAPI project: a blog with JWT authentication, a GraphQL API for posts, comments and profiles, and a SQLAdmin panel.
+FastAPI project: a blog with JWT authentication, a GraphQL API for posts, comments, profiles and bookmarks, and a SQLAdmin panel.
 
 ## Stack
 
@@ -10,7 +10,7 @@ FastAPI project: a blog with JWT authentication, a GraphQL API for posts, commen
 - AuthX, JWT RS256, access 15 min / refresh 30 days (`backend/auth/security.py`)
 - Redis — revoked-token blocklist (`revoked:{token}`)
 - Strawberry GraphQL — one schema at `/graphql` (`backend/core/schemas/graphql.py`)
-- SQLAdmin (`/admin`: Users, Profiles, Posts, Comments)
+- SQLAdmin (`/admin`: Users, Profiles, Posts, Comments, Post bookmarks)
 
 ## Layout
 
@@ -30,6 +30,8 @@ backend/
                      # sqladmin ProfileAdmin
   blog/              # Post and Comment models, status enum, repositories, GraphQL types/queries/mutations,
                      # DataLoaders, require_owner (permissions.py), sqladmin PostAdmin and CommentAdmin
+  bookmark/          # PostBookmark model, repository, GraphQL types/queries/mutations, DataLoaders,
+                     # require_owner (permissions.py), sqladmin BookmarkAdmin
   admin/             # setup_admin, AdminAuth (email login)
 migrations/          # Alembic
 keys/                # jwt-private.pem / jwt-public.pem (not committed to git)
@@ -42,10 +44,12 @@ docker-compose.yaml  # PostgreSQL, Redis
 - `profiles` — one per user (`user_id` unique): `username`, `bio`
 - `posts` — `title`, `body`, `status` (`draft` / `published`), `published_at`, `author_id` → `profiles`
 - `comments` — `body`, `post_id` → `posts`, `author_id` → `profiles`
+- `post_bookmarks` — `owner_id` → `profiles`, `post_id` → `posts`; a profile can bookmark a post once
+  (unique `(owner_id, post_id)`)
 
 A profile is created on registration with the username `user_<id>`.
-Deleting a user deletes their profile; deleting a profile deletes its posts and comments;
-deleting a post deletes its comments (`ON DELETE CASCADE`).
+Deleting a user deletes their profile; deleting a profile deletes its posts, comments and bookmarks;
+deleting a post deletes its comments and bookmarks (`ON DELETE CASCADE`).
 All timestamps are stored as `timestamptz`.
 
 ## Endpoints
@@ -67,14 +71,26 @@ Queries (public):
 
 | Field | Returns |
 |---|---|
-| `posts` | all posts |
-| `postById(postId)` | a post or `null` |
+| `posts` | published posts |
+| `postById(postId)` | a post or `null`; drafts are returned only to their author |
 | `profiles` | all profiles |
 | `profileById(profileId)` / `profileByUsername(username)` | a profile or `null` |
 | `commentById(commentId)` | a comment or `null` |
+| `bookmarks(ownerId)` | a profile's bookmarks, newest first (bookmarks are public, like on Habr) |
+
+Queries that require a token:
+
+| Field | Returns |
+|---|---|
+| `myPosts(status)` | the current profile's posts in any status, optionally filtered (`DRAFT` / `PUBLISHED`) |
 
 Related fields are resolved on demand: `Post.author` → `Profile`, `Post.comments` → `[Comment]`,
-`Post.commentsCount`, `Comment.author` → `Profile`, `Profile.posts` → `[Post]`, `Profile.postsCount`.
+`Post.commentsCount`, `Comment.author` → `Profile`, `Profile.posts` → `[Post]`, `Profile.postsCount`,
+`Profile.bookmarks` → `[PostBookmark]`, `Profile.bookmarksCount`, `PostBookmark.post` → `Post`.
+
+Drafts are visible only to their author: public lists (`posts`, `Profile.posts`, `Profile.postsCount`,
+bookmarks) contain only published posts. A bookmark on a post that went back to draft is hidden
+until the post is published again.
 
 Mutations (require `Authorization: Bearer <access token>`):
 
@@ -88,6 +104,8 @@ Mutations (require `Authorization: Bearer <access token>`):
 | `updateComment(commentId, input)` | update own comment |
 | `deleteComment(commentId)` | delete own comment |
 | `updateProfile(input)` | update the current profile (`username`, `bio`) |
+| `createBookmark(input)` | bookmark a post (`postId`); returns the existing bookmark if it is already there |
+| `deleteBookmark(postId)` | delete own bookmark |
 
 Example:
 
@@ -120,7 +138,7 @@ In GraphiQL, put the token on the **Headers** tab:
 ```
 
 Errors come in `errors[]`; application errors carry a code in `extensions.code`
-(`FORBIDDEN`, `NOT_FOUND`). Without a token, mutations return `Authentication required`.
+(`FORBIDDEN`, `NOT_FOUND`). Without a token, mutations and `myPosts` return `Authentication required`.
 If a request has errors, its transaction is rolled back.
 
 Unexpected server errors (e.g. database errors) are masked as `Unexpected error.` by the
@@ -140,8 +158,11 @@ depend on the number of returned objects.
 | `profile_loaders.profile_by_id` | profile id → `Profile` | `Post.author`, `Comment.author` | `profile/loaders.py` |
 | `blog_loaders.posts_by_author` | profile id → `[Post]` | `Profile.posts` | `blog/loaders.py` |
 | `blog_loaders.posts_count_by_author` | profile id → `int` | `Profile.postsCount` | `blog/loaders.py` |
+| `blog_loaders.post_by_id` | post id → `Post` | `PostBookmark.post` | `blog/loaders.py` |
 | `blog_loaders.comments_by_post` | post id → `[Comment]` | `Post.comments` | `blog/loaders.py` |
 | `blog_loaders.comments_count_by_post` | post id → `int` | `Post.commentsCount` | `blog/loaders.py` |
+| `bookmark_loaders.bookmarks_by_owner` | profile id → `[PostBookmark]` | `Profile.bookmarks` | `bookmark/loaders.py` |
+| `bookmark_loaders.bookmarks_count_by_owner` | profile id → `int` | `Profile.bookmarksCount` | `bookmark/loaders.py` |
 
 Loaders are created per request in `get_context` (`backend/core/context.py`), so their cache never
 leaks between requests. A batch function must return values in the same order and length as the keys.
@@ -231,5 +252,6 @@ credentials are the email + password from `/auth/register`.
 |---|---|
 | Users | create (password is hashed), edit, change status |
 | Profiles | edit `username` / `bio`; no create or delete — created on registration, deleted with the user |
-| Posts | list, edit, delete |
-| Comments | edit `body`, delete (moderation); no create — comments come from the API |
+| Posts | create (author, title, body; created as a draft), edit `title` / `body`, delete |
+| Comments | create (post, author, body), edit `body`, delete (moderation) |
+| Post bookmarks | create (owner, post), delete; no edit |
