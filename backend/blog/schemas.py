@@ -124,9 +124,21 @@ class PostQuery:
     async def post_by_id(self, info: strawberry.Info, post_id: int) -> PostType | None:
         repo = PostRepository(info.context.session)
         post = await repo.get_by_id(post_id)
-        if not post:
+        if post is None:
+            return None
+        profile = info.context.profile
+        is_author = profile is not None and post.author_id == profile.id
+        if post.status != PostStatus.PUBLISHED and not is_author:
             return None
         return PostType.from_model(post)
+
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    async def my_posts(
+        self, info: strawberry.Info, status: PostStatus | None = None
+    ) -> list[PostType]:
+        repo = PostRepository(info.context.session)
+        posts = await repo.list_by_author(info.context.profile.id, status)
+        return [PostType.from_model(post) for post in posts]
 
 
 @strawberry.type

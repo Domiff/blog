@@ -17,14 +17,39 @@ class PostRepository(BaseRepository):
         return post
 
     async def list(self) -> Sequence[Post]:
-        query = select(Post).order_by(Post.id)
+        query = select(Post).where(Post.status == PostStatus.PUBLISHED).order_by(Post.id)
         posts = await self.session.scalars(query)
         return posts.all()
 
     async def list_by_authors(self, author_ids: list[int]) -> Sequence[Post]:
         query = (
             select(Post)
-            .where(Post.author_id.in_(author_ids))
+            .where(
+                Post.author_id.in_(author_ids),
+                Post.status == PostStatus.PUBLISHED,
+            )
+            .order_by(Post.created_at.desc())
+        )
+        posts = await self.session.scalars(query)
+        return posts.all()
+
+    async def list_by_author(
+        self, author_id: int, status: PostStatus | None = None
+    ) -> Sequence[Post]:
+        query = (
+            select(Post)
+            .where(Post.author_id == author_id)
+            .order_by(Post.created_at.desc())
+        )
+        if status is not None:
+            query = query.where(Post.status == status)
+        posts = await self.session.scalars(query)
+        return posts.all()
+
+    async def list_by_ids(self, post_ids: list[int]) -> Sequence[Post]:
+        query = (
+            select(Post)
+            .where(Post.id.in_(post_ids))
             .order_by(Post.created_at.desc())
         )
         posts = await self.session.scalars(query)
@@ -33,7 +58,10 @@ class PostRepository(BaseRepository):
     async def count_by_authors(self, author_ids: list[int]) -> dict[int, int]:
         query = (
             select(Post.author_id, func.count())
-            .where(Post.author_id.in_(author_ids))
+            .where(
+                Post.author_id.in_(author_ids),
+                Post.status == PostStatus.PUBLISHED,
+            )
             .group_by(Post.author_id)
         )
         result = await self.session.execute(query)
