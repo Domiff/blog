@@ -26,7 +26,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 target_metadata = Base.metadata
 
-config.set_main_option("sqlalchemy.url", settings.db.get_url())
+config.set_main_option("sqlalchemy.url", settings.db.get_url().render_as_string(hide_password=False))
 
 
 def run_migrations_offline() -> None:
