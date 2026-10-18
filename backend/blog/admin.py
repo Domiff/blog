@@ -1,12 +1,6 @@
-from fastapi import Request
-from fastapi.responses import RedirectResponse
-from sqladmin import action, Flash
-
 from backend.admin.base import BaseAdmin
 from backend.admin.utils import truncate
 from backend.blog.models import Comment, Post
-from backend.blog.repository import PostRepository
-from backend.core.database import session_maker
 
 
 class PostAdmin(BaseAdmin, model=Post):
@@ -46,6 +40,7 @@ class PostAdmin(BaseAdmin, model=Post):
     }
 
     form_create_rules = [
+        "author",
         "title",
         "body",
     ]
@@ -97,6 +92,11 @@ class CommentAdmin(BaseAdmin, model=Comment):
         Comment.body: truncate(),
     }
 
+    form_columns = [
+        Comment.post,
+        Comment.author,
+        Comment.body,
+    ]
     form_edit_rules = [
         "body",
     ]

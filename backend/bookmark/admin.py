@@ -35,7 +35,10 @@ class BookmarkAdmin(BaseAdmin, model=PostBookmark):
         PostBookmark.id,
         PostBookmark.created_at,
     ]
-
+    form_columns = [
+        PostBookmark.owner,
+        PostBookmark.post,
+    ]
     can_edit = False
 
     icon = "fa-solid fa-bookmark"
