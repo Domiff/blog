@@ -9,6 +9,7 @@ from backend.core.database import Base
 
 if TYPE_CHECKING:
     from backend.profile.models import Profile
+    from backend.bookmark.models import PostBookmark
 
 
 class Post(Base):
@@ -33,6 +34,9 @@ class Post(Base):
     )
     author: Mapped["Profile"] = relationship(back_populates="posts", lazy="raise")
     comments: Mapped[list["Comment"]] = relationship(
+        back_populates="post", lazy="raise", passive_deletes=True
+    )
+    bookmarks: Mapped[list["PostBookmark"]] = relationship(
         back_populates="post", lazy="raise", passive_deletes=True
     )
 

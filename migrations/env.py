@@ -12,6 +12,7 @@ from backend.core.database import Base
 from backend.auth.models import User  # noqa
 from backend.blog.models import Post  # noqa
 from backend.profile.models import Profile  # noqa
+from backend.bookmark.models import PostBookmark  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

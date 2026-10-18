@@ -8,6 +8,7 @@ from backend.core.database import Base
 if TYPE_CHECKING:
     from backend.auth.models import User
     from backend.blog.models import Post, Comment
+    from backend.bookmark.models import PostBookmark
 
 
 class Profile(Base):
@@ -25,6 +26,9 @@ class Profile(Base):
     )
     comments: Mapped[list["Comment"]] = relationship(
         back_populates="author", lazy="raise", passive_deletes=True
+    )
+    bookmarks: Mapped[list["PostBookmark"]] = relationship(
+        back_populates="owner", lazy="raise", passive_deletes=True
     )
 
     def __str__(self) -> str:
