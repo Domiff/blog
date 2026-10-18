@@ -7,6 +7,7 @@ from backend.bookmark.models import PostBookmark
 from backend.blog.models import Post
 from backend.blog.enums import PostStatus
 
+
 class PostBookmarkRepository(BaseRepository):
     async def create(self, data: dict) -> PostBookmark:
         bookmark = PostBookmark(**data)
@@ -20,12 +21,27 @@ class PostBookmarkRepository(BaseRepository):
         return bookmarks.all()
 
     async def list_by_owner(self, owner_id: int) -> Sequence[PostBookmark]:
-        query = select(PostBookmark).join(PostBookmark.post).where(PostBookmark.owner_id == owner_id, Post.status == PostStatus.PUBLISHED).order_by(PostBookmark.created_at.desc())
+        query = (
+            select(PostBookmark)
+            .join(PostBookmark.post)
+            .where(
+                PostBookmark.owner_id == owner_id, Post.status == PostStatus.PUBLISHED
+            )
+            .order_by(PostBookmark.created_at.desc())
+        )
         bookmarks = await self.session.scalars(query)
         return bookmarks.all()
 
     async def list_by_owners(self, owner_ids: Sequence[int]) -> Sequence[PostBookmark]:
-        query = select(PostBookmark).join(PostBookmark.post).where(PostBookmark.owner_id.in_(owner_ids), Post.status == PostStatus.PUBLISHED).order_by(PostBookmark.created_at.desc())
+        query = (
+            select(PostBookmark)
+            .join(PostBookmark.post)
+            .where(
+                PostBookmark.owner_id.in_(owner_ids),
+                Post.status == PostStatus.PUBLISHED,
+            )
+            .order_by(PostBookmark.created_at.desc())
+        )
         bookmarks = await self.session.scalars(query)
         return bookmarks.all()
 
@@ -45,7 +61,9 @@ class PostBookmarkRepository(BaseRepository):
     async def get_by_id(self, id: int) -> PostBookmark | None:
         return await self.session.get(PostBookmark, id)
 
-    async def get_by_owner_and_post(self, owner_id: int, post_id: int) -> PostBookmark | None:
+    async def get_by_owner_and_post(
+        self, owner_id: int, post_id: int
+    ) -> PostBookmark | None:
         query = select(PostBookmark).where(
             PostBookmark.owner_id == owner_id,
             PostBookmark.post_id == post_id,

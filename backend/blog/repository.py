@@ -17,7 +17,9 @@ class PostRepository(BaseRepository):
         return post
 
     async def list(self) -> Sequence[Post]:
-        query = select(Post).where(Post.status == PostStatus.PUBLISHED).order_by(Post.id)
+        query = (
+            select(Post).where(Post.status == PostStatus.PUBLISHED).order_by(Post.id)
+        )
         posts = await self.session.scalars(query)
         return posts.all()
 
@@ -48,9 +50,7 @@ class PostRepository(BaseRepository):
 
     async def list_by_ids(self, post_ids: list[int]) -> Sequence[Post]:
         query = (
-            select(Post)
-            .where(Post.id.in_(post_ids))
-            .order_by(Post.created_at.desc())
+            select(Post).where(Post.id.in_(post_ids)).order_by(Post.created_at.desc())
         )
         posts = await self.session.scalars(query)
         return posts.all()

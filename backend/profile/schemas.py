@@ -33,13 +33,13 @@ class ProfileType:
         return [PostType.from_model(post) for post in posts]
 
     @strawberry.field
-    async def posts_count(
-        self, info: strawberry.Info
-    ) -> int:
+    async def posts_count(self, info: strawberry.Info) -> int:
         return await info.context.blog_loaders.posts_count_by_author.load(self.id)
 
     @strawberry.field
-    async def bookmarks(self, info: strawberry.Info)-> list[Annotated["BookmarkType", strawberry.lazy("backend.bookmark.schemas")]]:
+    async def bookmarks(
+        self, info: strawberry.Info
+    ) -> list[Annotated["BookmarkType", strawberry.lazy("backend.bookmark.schemas")]]:
         from backend.bookmark.schemas import BookmarkType
 
         bookmarks = await info.context.bookmark_loaders.bookmarks_by_owner.load(self.id)
@@ -47,7 +47,9 @@ class ProfileType:
 
     @strawberry.field
     async def bookmarks_count(self, info: strawberry.Info) -> int:
-        return await info.context.bookmark_loaders.bookmarks_count_by_owner.load(self.id)
+        return await info.context.bookmark_loaders.bookmarks_count_by_owner.load(
+            self.id
+        )
 
     @classmethod
     def from_model(cls, profile: Profile) -> "ProfileType":

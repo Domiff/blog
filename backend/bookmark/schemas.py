@@ -24,7 +24,9 @@ class BookmarkType:
     owner_id: strawberry.Private[int]
 
     @strawberry.field
-    async def post(self, info: strawberry.Info) -> Annotated["PostType", strawberry.lazy("backend.blog.schemas")]:
+    async def post(
+        self, info: strawberry.Info
+    ) -> Annotated["PostType", strawberry.lazy("backend.blog.schemas")]:
         from backend.blog.schemas import PostType
 
         post = await info.context.blog_loaders.post_by_id.load(self.post_id)
@@ -42,7 +44,9 @@ class BookmarkType:
 @strawberry.type
 class BookmarkQuery:
     @strawberry.field
-    async def bookmarks(self, info: strawberry.Info, owner_id: int) -> list[BookmarkType]:
+    async def bookmarks(
+        self, info: strawberry.Info, owner_id: int
+    ) -> list[BookmarkType]:
         repo = PostBookmarkRepository(info.context.session)
         bookmarks = await repo.list_by_owner(owner_id)
         return [BookmarkType.from_model(bookmark) for bookmark in bookmarks]
@@ -51,12 +55,16 @@ class BookmarkQuery:
 @strawberry.type
 class BookmarkMutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
-    async def create_bookmark(self, info: strawberry.Info, input: CreateBookmarkInput) -> BookmarkType:
+    async def create_bookmark(
+        self, info: strawberry.Info, input: CreateBookmarkInput
+    ) -> BookmarkType:
         if not await PostRepository(info.context.session).get_by_id(input.post_id):
             raise NotFound("Post not found")
 
         repo = PostBookmarkRepository(info.context.session)
-        existing_bookmark = await repo.get_by_owner_and_post(owner_id=info.context.profile.id, post_id=input.post_id)
+        existing_bookmark = await repo.get_by_owner_and_post(
+            owner_id=info.context.profile.id, post_id=input.post_id
+        )
 
         if existing_bookmark:
             return BookmarkType.from_model(existing_bookmark)
