@@ -2,13 +2,13 @@ from typing import Annotated, TYPE_CHECKING
 
 import strawberry
 
-from backend.blog.repository import PostRepository
 from backend.core.permissions import IsAuthenticated
 from backend.profile.models import Profile
 from backend.profile.repository import ProfileRepository
 
 if TYPE_CHECKING:
     from backend.blog.schemas import PostType
+    from backend.bookmark.schemas import BookmarkType
 
 
 @strawberry.input
@@ -37,6 +37,17 @@ class ProfileType:
         self, info: strawberry.Info
     ) -> int:
         return await info.context.blog_loaders.posts_count_by_author.load(self.id)
+
+    @strawberry.field
+    async def bookmarks(self, info: strawberry.Info)-> list[Annotated["BookmarkType", strawberry.lazy("backend.bookmark.schemas")]]:
+        from backend.bookmark.schemas import BookmarkType
+
+        bookmarks = await info.context.bookmark_loaders.bookmarks_by_owner.load(self.id)
+        return [BookmarkType.from_model(bookmark) for bookmark in bookmarks]
+
+    @strawberry.field
+    async def bookmarks_count(self, info: strawberry.Info) -> int:
+        return await info.context.bookmark_loaders.bookmarks_count_by_owner.load(self.id)
 
     @classmethod
     def from_model(cls, profile: Profile) -> "ProfileType":

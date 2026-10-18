@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from backend.core.database import BaseRepository
 from backend.bookmark.models import PostBookmark
@@ -23,6 +23,24 @@ class PostBookmarkRepository(BaseRepository):
         query = select(PostBookmark).join(PostBookmark.post).where(PostBookmark.owner_id == owner_id, Post.status == PostStatus.PUBLISHED).order_by(PostBookmark.created_at.desc())
         bookmarks = await self.session.scalars(query)
         return bookmarks.all()
+
+    async def list_by_owners(self, owner_ids: Sequence[int]) -> Sequence[PostBookmark]:
+        query = select(PostBookmark).join(PostBookmark.post).where(PostBookmark.owner_id.in_(owner_ids), Post.status == PostStatus.PUBLISHED).order_by(PostBookmark.created_at.desc())
+        bookmarks = await self.session.scalars(query)
+        return bookmarks.all()
+
+    async def count_by_owners(self, owner_ids: Sequence[int]) -> dict[int, int]:
+        query = (
+            select(PostBookmark.owner_id, func.count())
+            .join(PostBookmark.post)
+            .where(
+                PostBookmark.owner_id.in_(owner_ids),
+                Post.status == PostStatus.PUBLISHED,
+            )
+            .group_by(PostBookmark.owner_id)
+        )
+        result = await self.session.execute(query)
+        return dict(result.all())
 
     async def get_by_id(self, id: int) -> PostBookmark | None:
         return await self.session.get(PostBookmark, id)
