@@ -12,6 +12,7 @@ from backend.blog.repository import PostRepository, CommentRepository
 class BlogLoaders:
     posts_by_author: DataLoader[int, list[Post]]
     posts_count_by_author: DataLoader[int, int]
+    post_by_id: DataLoader[int, list[Post]]
     comments_by_post: DataLoader[int, list[Comment]]
     comments_count_by_post: DataLoader[int, int]
 
@@ -24,6 +25,14 @@ async def load_posts_by_author(
     for post in posts:
         grouped[post.author_id].append(post)
     return [grouped[author_id] for author_id in author_ids]
+
+
+async def load_post_by_id(
+    session: AsyncSession, post_ids: list[int]
+) -> list[list[Post]]:
+    posts = await PostRepository(session).list_by_ids(post_ids)
+    by_id = {post.id: post for post in posts}
+    return [by_id[post_id] for post_id in post_ids]
 
 
 async def load_posts_count_by_author(
@@ -56,6 +65,7 @@ def create_blog_loaders(session: AsyncSession) -> BlogLoaders:
         posts_count_by_author=DataLoader(
             load_fn=partial(load_posts_count_by_author, session)
         ),
+        post_by_id=DataLoader(load_fn=partial(load_post_by_id, session)),
         comments_by_post=DataLoader(load_fn=partial(load_comments_by_post, session)),
         comments_count_by_post=DataLoader(
             load_fn=partial(load_comments_count_by_post, session)
